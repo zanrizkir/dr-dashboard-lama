@@ -105,6 +105,32 @@ python scripts/predict_and_visualize.py
 
 > You can also load the pre-trained `.keras` model directly for testing.
 
+### Run Streamlit Web Application
+
+To run the interactive clinical dashboard:
+
+```bash
+streamlit run streamlit_app.py
+```
+
+### Local LLM Setup for Dynamic Clinical Intelligence (Ollama)
+
+Section "AI-Generated Clinical Intelligence" didukung oleh model bahasa lokal (LLM) gratis via **Ollama** dengan penguncian prompt ketat (output locked to factual CNN classification metrics).
+
+1. **Install Ollama**: Unduh installer dari [https://ollama.com](https://ollama.com) dan pasang di komputer Anda.
+2. **Download Model Rekomendasi**:
+   ```bash
+   ollama pull llama3.2:3b
+   ```
+   *(Bisa juga menggunakan model ringan lain seperti `phi3:mini` atau `qwen2.5:3b`)*.
+3. **Jalankan Layanan Ollama**:
+   Pastikan Ollama berjalan di latar belakang (`http://localhost:11434`).
+4. **Jalankan Aplikasi**:
+   ```bash
+   streamlit run streamlit_app.py
+   ```
+   *Catatan: Jika Ollama tidak aktif atau model belum diunduh, aplikasi secara otomatis beralih ke template klinis standar (fallback) tanpa mengalami crash atau hang.*
+
 ---
 
 ## File Structure

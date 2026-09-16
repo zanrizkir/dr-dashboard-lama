@@ -1,0 +1,32 @@
+# Dataset
+data/
+
+# Environments
+venv/
+.env
+
+# Python & System Cache
+__pycache__/
+*.pyc
+.DS_Store
+Thumbs.db
+
+# AI Agents & IDE Cache
+.agents/
+.claude/
+.agents.zip
+skills-lock.json
+
+# Debug & Temp Files
+debug_crops/
+scratch/
+pri.txt
+temp/
+
+# Old Deployment Files
+netlify-app/
+netlify.toml
+
+# Models (Abaikan checkpoint atau .h5 berat, tapi izinkan .keras dan .json)
+models/*.h5
+models/checkpoint/
