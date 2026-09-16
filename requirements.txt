@@ -1,7 +1,6 @@
-flask==3.0.0
-tensorflow-cpu==2.16.1
-keras==3.8.0
-pillow==10.0.1
-numpy==1.26.4
-werkzeug==3.0.0
+streamlit
+tensorflow-cpu==2.15.0
+pillow
+numpy
 opencv-python-headless
+requests
