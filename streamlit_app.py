@@ -854,7 +854,7 @@ def crop_retina(img_np: np.ndarray, save_debug: bool = True, debug_prefix: str =
 
 @st.cache_resource(show_spinner="Memuat model EfficientNetB3...")
 def load_model():
-    m = tf.keras.models.load_model('models/efficientnetb3_dr.keras')
+    m = tf.keras.models.load_model('models/efficientnetb3_dr.keras', compile=False)
     logging.info("Model EfficientNetB3 berhasil dimuat.")
     return m
 
