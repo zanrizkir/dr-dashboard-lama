@@ -11,8 +11,22 @@ import json
 import re
 import logging
 from datetime import datetime
+import html
 import requests
+import plotly.graph_objects as go
 import streamlit as st
+
+_markdown_asli = st.markdown
+
+
+def _markdown_html_aman(body, *args, **kwargs):
+    """Rapikan blok HTML: hapus indentasi dan baris kosong agar Markdown tidak menampilkannya sebagai kode."""
+    if kwargs.get("unsafe_allow_html") and isinstance(body, str):
+        body = "\n".join(line.strip() for line in body.splitlines() if line.strip())
+    return _markdown_asli(body, *args, **kwargs)
+
+
+st.markdown = _markdown_html_aman
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
 
@@ -21,7 +35,7 @@ st.set_page_config(
     page_title="AI Retina | Deteksi Retinopati Diabetik",
     page_icon=None,
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # Design system
@@ -529,6 +543,197 @@ span:not([data-testid="stIconMaterial"]):not([class*="material-symbols"]):not(.m
 
 st.markdown(DESIGN_CSS, unsafe_allow_html=True)
 
+# Penyesuaian layout padat (menimpa sebagian aturan desain di atas)
+LAYOUT_CSS = """
+<style>
+header[data-testid="stHeader"] {
+  display: flex !important;
+  position: fixed !important;
+  height: 2.5rem !important;
+  background: transparent !important;
+}
+[data-testid="stDecoration"], [data-testid="stToolbarActions"], [data-testid="stMainMenu"],
+[data-testid="stAppDeployButton"], .stAppDeployButton { display: none !important; }
+[data-testid="stToolbar"] { display: flex !important; background: transparent !important; }
+[data-testid="stSidebarCollapsedControl"],
+[data-testid="stExpandSidebarButton"] {
+  display: flex !important;
+  visibility: visible !important;
+  z-index: 999991 !important;
+}
+[data-testid="stSidebarCollapsedControl"] button,
+button[data-testid="stExpandSidebarButton"],
+[data-testid="stExpandSidebarButton"] button {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: 10px !important;
+  color: var(--text) !important;
+}
+[data-testid="stSidebarCollapsedControl"] svg,
+[data-testid="stExpandSidebarButton"] svg,
+[data-testid="stExpandSidebarButton"] span { color: var(--text) !important; fill: var(--text) !important; }
+
+.block-container { padding: 6px 26px 14px !important; }
+
+[data-testid="stSidebar"] {
+  background: var(--surface) !important;
+  border-right: 1px solid var(--border) !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] {
+  min-height: 0 !important;
+  padding: 14px !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 10px !important;
+}
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzone"] > button { width: 100% !important; }
+[data-testid="stSidebar"] [data-testid="stFileUploaderFile"] { margin: 8px 0 !important; }
+
+.ri-hero { padding: 16px 26px 14px; border-radius: var(--radius); border: 1px solid var(--border); }
+.ri-hero-label { margin-bottom: 6px; }
+.ri-hero h1 { font-size: 30px !important; }
+.ri-hero-sub { margin: 4px 0 0 !important; font-size: 13px; max-width: none; }
+.ri-hero-tags { display: none; }
+
+.ri-section { padding: 10px 0 4px; }
+.ri-section-title { margin-bottom: 8px; font-size: 18px; }
+.ri-disclaimer { padding: 8px 14px; font-size: 12px; line-height: 1.5; }
+
+.ri-warn-banner, .ri-info-banner { margin-bottom: 10px; padding: 9px 14px; font-size: 12px; }
+
+[data-testid="stImage"] img { max-width: 360px !important; }
+[data-testid="stSidebar"] [data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+[data-testid="stFileUploaderDropzoneInstructions"] { display: none !important; }
+
+[data-testid="stButton"] button,
+[data-testid="stBaseButton-secondary"] {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border-strong) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--text) !important;
+  box-shadow: none !important;
+}
+[data-testid="stButton"] button p,
+[data-testid="stButton"] button span,
+[data-testid="stButton"] button div { color: var(--text) !important; font-weight: 700 !important; font-size: 13px !important; }
+[data-testid="stButton"] button:hover { border-color: var(--accent-border) !important; background: var(--surface-3) !important; }
+
+[data-testid="stFileUploaderDropzone"] > button,
+[data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] {
+  position: relative !important;
+  display: block !important;
+  width: 100% !important;
+  min-width: 108px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 16px !important;
+  overflow: hidden !important;
+  font-size: 0 !important;
+  line-height: 0 !important;
+  text-indent: 0 !important;
+  color: transparent !important;
+  background: var(--accent) !important;
+  border: 1px solid var(--accent-border) !important;
+  border-radius: 9px !important;
+}
+[data-testid="stFileUploaderDropzone"] > button *,
+[data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"] * { visibility: hidden !important; font-size: 0 !important; }
+[data-testid="stFileUploaderDropzone"] > button::after,
+[data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]::after {
+  content: 'Pilih file';
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  visibility: visible;
+  color: #06201c;
+  font-family: var(--font) !important;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: normal;
+  text-transform: none;
+  line-height: 1;
+}
+[data-testid="stFileUploaderDropzone"] > button:hover,
+[data-testid="stFileUploaderDropzone"] [data-testid="stBaseButton-secondary"]:hover { filter: brightness(1.08); }
+
+[data-testid^="stFileUploaderFile"],
+[data-testid="stFileUploader"] [role="listitem"],
+[data-testid="stFileUploader"] li {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 9px !important;
+  color: var(--text) !important;
+}
+[data-testid^="stFileUploaderFile"] * { color: var(--text) !important; }
+[data-testid^="stFileUploaderFile"] small,
+[data-testid^="stFileUploaderFile"] [data-testid*="Size"] { color: var(--muted) !important; }
+[data-testid^="stFileUploaderFile"] [data-testid*="Data"],
+[data-testid^="stFileUploaderFile"] [data-testid*="Name"] { border: 0 !important; background: transparent !important; }
+[data-testid="stFileUploaderFile"] [data-testid^="stBaseButton"],
+[data-testid="stFileUploaderFile"] button,
+[data-testid="stFileUploaderDeleteBtn"] button,
+[data-testid="stFileUploaderDeleteBtn"] [data-testid^="stBaseButton"] {
+  position: static !important;
+  display: inline-flex !important;
+  width: auto !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 4px !important;
+  overflow: visible !important;
+  font-size: inherit !important;
+  line-height: normal !important;
+  color: var(--text-soft) !important;
+  background: transparent !important;
+  border: 0 !important;
+  filter: none !important;
+}
+[data-testid="stFileUploaderFile"] [data-testid^="stBaseButton"] *,
+[data-testid="stFileUploaderFile"] button *,
+[data-testid="stFileUploaderDeleteBtn"] button * { visibility: visible !important; font-size: inherit !important; }
+[data-testid="stFileUploaderFile"] [data-testid^="stBaseButton"]::after,
+[data-testid="stFileUploaderFile"] button::after,
+[data-testid="stFileUploaderDeleteBtn"] button::after { content: none !important; display: none !important; }
+.ri-upload-hint { margin-top: 8px; color: var(--muted); font-family: var(--mono); font-size: 10px; line-height: 1.5; }
+
+[data-testid="stSelectbox"] label,
+[data-testid="stSelectbox"] label p,
+[data-testid="stSelectbox"] [data-testid="stWidgetLabel"] p {
+  color: var(--muted) !important;
+  font-family: var(--mono) !important;
+  font-size: 10px !important;
+  font-weight: 500 !important;
+  letter-spacing: .12em !important;
+  text-transform: uppercase !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] > div {
+  background: var(--surface-2) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: var(--radius-sm) !important;
+}
+[data-testid="stSelectbox"] [data-baseweb="select"] *,
+[data-testid="stSelectbox"] input {
+  color: var(--text) !important;
+  -webkit-text-fill-color: var(--text) !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+[data-testid="stSelectbox"] svg { fill: var(--text-soft) !important; color: var(--text-soft) !important; }
+[data-baseweb="popover"] [data-baseweb="menu"],
+[data-baseweb="popover"] ul { background: var(--surface-2) !important; border: 1px solid var(--border) !important; }
+[data-baseweb="popover"] li,
+[data-baseweb="popover"] li * { color: var(--text) !important; background: transparent !important; }
+[data-baseweb="popover"] li:hover,
+[data-baseweb="popover"] li[aria-selected="true"] { background: var(--surface-3) !important; }
+
+.ri-gap { height: 14px; }
+</style>
+"""
+
+
+st.markdown(LAYOUT_CSS, unsafe_allow_html=True)
+
 # Struktur data klasifikasi
 CLASS_LABELS = ["Tanpa RD", "RD Ringan", "RD Sedang", "RD Berat", "RD Proliferatif"]
 RISK_TIERS   = ["PANTAU", "PANTAU", "TINDAK LANJUT", "SEGERA", "SEGERA"]
@@ -956,31 +1161,77 @@ st.markdown("""
 
 model = load_model()
 
-# Panel unggah dan pengaturan
-st.markdown('<div class="ri-section" style="padding-bottom:8px;">', unsafe_allow_html=True)
+# Utilitas tampilan
+CLASS_COLORS = ["#10b981", "#facc15", "#f97316", "#ef4444", "#a855f7"]
+PLOT_FONT = dict(family="Manrope, system-ui, sans-serif", color="#aab7c8", size=12)
 
-upload_col, settings_col = st.columns([3, 1], gap="medium")
 
-with upload_col:
-    st.markdown('<div class="ri-upload-card"><h4>Unggah Citra Fundus Retina</h4>', unsafe_allow_html=True)
+def esc(value) -> str:
+    return html.escape(str(value))
+
+
+def hex_to_rgba(hex_color: str, alpha: float) -> str:
+    h = hex_color.lstrip("#")
+    r, g, b = (int(h[i:i + 2], 16) for i in (0, 2, 4))
+    return f"rgba({r},{g},{b},{alpha})"
+
+
+def build_prob_chart(probs: np.ndarray, predicted_class: int) -> go.Figure:
+    values = [float(p) * 100 for p in probs]
+    colors = [hex_to_rgba(c, 1.0 if i == predicted_class else 0.45) for i, c in enumerate(CLASS_COLORS)]
+    fig = go.Figure(go.Bar(
+        x=values,
+        y=CLASS_LABELS,
+        orientation="h",
+        marker=dict(color=colors),
+        text=[f"{v:.1f}%" for v in values],
+        textposition="outside",
+        cliponaxis=False,
+        hovertemplate="%{y}: %{x:.1f}%<extra></extra>",
+    ))
+    fig.update_layout(
+        height=290,
+        margin=dict(t=6, b=6, l=6, r=24),
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=PLOT_FONT,
+        showlegend=False,
+        xaxis=dict(range=[0, 115], showgrid=False, zeroline=False, showticklabels=False),
+        yaxis=dict(autorange="reversed", showgrid=False, zeroline=False),
+        bargap=0.35,
+    )
+    return fig
+
+
+# Sidebar: unggah citra dan pengaturan Grad-CAM
+with st.sidebar:
+    st.markdown('<div class="ri-section-label" style="margin:4px 0 8px;">Unggah Citra Fundus Retina</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader(
         "Seret dan lepas atau klik untuk memilih file — PNG / JPG / JPEG",
         type=["png", "jpg", "jpeg"],
         label_visibility="collapsed",
     )
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('<div class="ri-upload-hint">Seret dan lepas ke area di atas. Format PNG, JPG, atau JPEG.</div>', unsafe_allow_html=True)
 
-with settings_col:
-    st.markdown('<div class="ri-upload-card"><h4>Pengaturan Grad-CAM</h4>', unsafe_allow_html=True)
+    st.markdown('<div class="ri-section-label" style="margin:14px 0 8px;">Pengaturan Grad-CAM</div>', unsafe_allow_html=True)
     colormap_choice = st.selectbox(
         "Palet Peta Panas",
         options=["Jet (Standar)", "Viridis (Ramah Buta Warna)", "Turbo (Kontras Tinggi)"],
         index=0,
         help="Pilih skema warna untuk peta perhatian model. Viridis disarankan untuk pengguna dengan buta warna merah-hijau.",
     )
-    st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown("""
+    <div class="ri-section-label" style="margin:14px 0 8px;">Model</div>
+    <div class="ri-intel-card" style="padding:14px 16px; height:auto;">
+      <div class="ri-intel-card-label">Klasifikasi</div>
+      <div style="margin-top:6px; color:var(--text); font-size:15px; font-weight:800;">EfficientNetB3</div>
+      <div class="ri-intel-card-body" style="margin-top:4px; font-size:12px; line-height:1.6;">
+        efficientnetb3_dr.keras<br>Input: 300×300 RGB
+      </div>
+    </div>
+    <div class="ri-scan-note ok">Model EfficientNetB3 berhasil dimuat</div>
+    """, unsafe_allow_html=True)
 
 # Inferensi dan render hasil
 if uploaded_file is not None:
@@ -1039,19 +1290,20 @@ if uploaded_file is not None:
     if not any(h["filename"] == uploaded_file.name and h["timestamp"] == scan_record["timestamp"] for h in st.session_state["history"]):
         st.session_state["history"].insert(0, scan_record)
 
-    st.markdown('<div class="ri-section">', unsafe_allow_html=True)
+    conf_pct = confidence * 100
+    badge_class = "ri-badge-monitor" if predicted_class <= 1 else ("ri-badge-engage" if predicted_class == 2 else "ri-badge-act")
 
     if confidence < 0.40:
         st.markdown(f"""
-        <div class="ri-warn-banner">
-          <strong>Keyakinan Rendah ({confidence * 100:.1f}%).</strong>
+        <div class="ri-warn-banner" style="margin-top:10px;">
+          <strong>Keyakinan Rendah ({conf_pct:.1f}%).</strong>
           Citra mungkin memiliki pencahayaan tidak lazim, framing sebagian, atau fitur ambigu.
           Verifikasi manual oleh tenaga ahli disarankan.
         </div>
         """, unsafe_allow_html=True)
     elif prob_margin < 0.10:
         st.markdown(f"""
-        <div class="ri-info-banner">
+        <div class="ri-info-banner" style="margin-top:10px;">
           <strong>Klasifikasi Ambigu.</strong>
           Prediksi berdekatan antara <strong>{CLASS_LABELS[top1_idx]}</strong> ({top1_prob * 100:.1f}%)
           dan <strong>{CLASS_LABELS[top2_idx]}</strong> ({top2_prob * 100:.1f}%).
@@ -1059,38 +1311,35 @@ if uploaded_file is not None:
         </div>
         """, unsafe_allow_html=True)
 
-    col_scan, col_result = st.columns(2, gap="large")
+    # Baris 1: citra fundus dan Grad-CAM
+    st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+    col_scan, col_cam = st.columns(2, gap="medium")
 
     with col_scan:
-        badge_class = "ri-badge-monitor" if predicted_class <= 1 else ("ri-badge-engage" if predicted_class == 2 else "ri-badge-act")
         st.markdown('<div class="ri-section-label">Pindaian Retina</div>', unsafe_allow_html=True)
         st.image(resized_pil, caption="Citra fundus terproses - pemotongan persegi 1:1 terpusat, 300 × 300 piksel", use_container_width=True)
 
         if crop_info["success"]:
-            st.markdown(f"""
-            <div class="ri-scan-note ok">
+            crop_note = f"""
+            <div class="ri-scan-note ok" style="margin-top:12px;">
               Pemotongan retina diterapkan - rasio aspek {crop_info['aspect_ratio']:.2f}
-            </div>
-            """, unsafe_allow_html=True)
+            </div>"""
         else:
-            st.markdown(f"""
-            <div class="ri-info-banner" style="margin-top:10px; margin-bottom:0; padding:10px 16px; font-size:12px;">
-              Framing: {crop_info['reason']}
-            </div>
-            """, unsafe_allow_html=True)
+            crop_note = f"""
+            <div class="ri-info-banner" style="margin:12px 0 0; padding:8px 12px; font-size:12px;">
+              Framing: {esc(crop_info['reason'])}
+            </div>"""
 
-    with col_result:
-        conf_pct = confidence * 100
         st.markdown(f"""
-        <div class="ri-section-label">Hasil Klasifikasi</div>
-        <div class="ri-result-card">
-          <div style="display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px;">
+        <div class="ri-result-card" style="padding:16px 18px; min-height:190px;">
+          <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
             <div>
-              <div style="font-size:30px; font-weight:700; letter-spacing:-0.03em; color:var(--text-primary); line-height:1;">{label}</div>
-              <div style="font-size:12px; color:var(--text-secondary); font-family:var(--font-mono); margin-top:6px;">{desc}</div>
+              <div class="ri-section-label">Diagnosis</div>
+              <div style="font-size:26px; font-weight:700; letter-spacing:-0.03em; color:var(--text-primary); line-height:1.1; margin-top:4px;">{label}</div>
             </div>
             <span class="ri-badge {badge_class}"><span class="ri-badge-dot"></span>{tier}</span>
           </div>
+          <div style="font-size:12px; color:var(--text-secondary); font-family:var(--font-mono); margin-top:8px; line-height:1.5;">{desc}</div>
           <div class="ri-conf-bar-wrap">
             <div class="ri-conf-bar-label">
               <span>Tingkat Keyakinan Model</span>
@@ -1100,45 +1349,21 @@ if uploaded_file is not None:
               <div class="ri-conf-bar-fill" style="width:{conf_pct:.1f}%;"></div>
             </div>
           </div>
-          <div style="margin-top:24px;">
-            <div style="font-family:var(--font-mono); font-size:10px; text-transform:uppercase; letter-spacing:0.12em; color:var(--text-muted); margin-bottom:10px;">Skor per Kelas</div>
+          {crop_note}
+        </div>
         """, unsafe_allow_html=True)
 
-        for i, (lbl, p) in enumerate(zip(CLASS_LABELS, probs)):
-            is_active = i == predicted_class
-            fill_cls = "active" if is_active else ""
-            pct_cls = "active" if is_active else ""
-            st.markdown(f"""
-            <div class="ri-score-row">
-              <span class="ri-score-name">{lbl}</span>
-              <div class="ri-score-track">
-                <div class="ri-score-fill {fill_cls}" style="width:{p*100:.1f}%;"></div>
-              </div>
-              <span class="ri-score-pct {pct_cls}">{p*100:.1f}%</span>
-            </div>
-            """, unsafe_allow_html=True)
+    with col_cam:
+        st.markdown('<div class="ri-section-label">Peta Panas Grad-CAM</div>', unsafe_allow_html=True)
 
-        st.markdown("</div></div>", unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Grad-CAM
-    st.markdown('<div class="ri-section" style="padding-top:8px;">', unsafe_allow_html=True)
-    st.markdown('<div class="ri-section-label">Interpretasi Model</div>', unsafe_allow_html=True)
-    st.markdown('<div class="ri-section-title">Peta Panas Grad-CAM</div>', unsafe_allow_html=True)
-
-    if gradcam_b64:
-        gradcam_img = b64_to_pil(gradcam_b64)
-        g_col_img, g_col_info = st.columns([3, 2], gap="large")
-
-        with g_col_img:
+        if gradcam_b64:
+            gradcam_img = b64_to_pil(gradcam_b64)
             st.image(
                 gradcam_img,
                 caption=f"Peta aktivasi berbobot gradien ({colormap_choice})",
                 use_container_width=True,
             )
 
-        with g_col_info:
             if "Viridis" in colormap_choice:
                 legend_items = [
                     ("#fde68a", "Kuning / Terang: aktivasi tertinggi (patologi utama)"),
@@ -1151,194 +1376,129 @@ if uploaded_file is not None:
                     ("#fbbf24", "Kuning / Hijau: aktivasi sedang"),
                     ("#3b82f6", "Biru / Sejuk: dasar / pengaruh rendah"),
                 ]
-
-            st.markdown("""
-            <div style="font-family:var(--font-mono); font-size:10px; text-transform:uppercase;
-                        letter-spacing:0.12em; color:var(--text-muted); margin-bottom:12px;">
-              Legenda Peta Panas
-            </div>
-            """, unsafe_allow_html=True)
-
-            for color, label_text in legend_items:
-                st.markdown(f"""
-                <div class="ri-legend-row">
-                  <div class="ri-legend-swatch" style="background:{color};"></div>
-                  <span>{label_text}</span>
-                </div>
-                """, unsafe_allow_html=True)
-
-            st.markdown("""
-            <div style="margin-top:16px; padding:14px 16px; background:var(--bg-elevated);
-                        border:1px solid var(--border); border-radius:var(--radius-card);
-                        font-size:13px; color:var(--text-secondary); line-height:1.65;">
-              Peta panas menyoroti struktur anatomi yang mempengaruhi skor klasifikasi,
-              termasuk diskus optikus, makula, arkade vaskular, dan kluster mikroaneurisma.
-              Pindaian normal berfokus pada pola pembuluh darah sentral, sedangkan pindaian RD
-              berpusat pada area hemoragik dan eksudatif.
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-        <div class="ri-warn-banner">Visualisasi Grad-CAM tidak dapat dihasilkan untuk citra ini.</div>
-        """, unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Performa model
-    st.markdown('<div class="ri-section" style="padding-top:8px;">', unsafe_allow_html=True)
-    st.markdown('<div class="ri-section-label">Performa Model</div>', unsafe_allow_html=True)
-
-    metrics = {}
-    metrics_path = os.path.join('models', 'metrics.json')
-    if os.path.exists(metrics_path):
-        with open(metrics_path, 'r') as f:
-            metrics = json.load(f)
-
-    val_acc = metrics.get('accuracy')
-    kappa = metrics.get('kappa')
-    train_samples = metrics.get('train_samples')
-    val_acc_str = f"{val_acc*100:.1f}%" if isinstance(val_acc, (float, int)) else "Tidak tersedia"
-    kappa_str = f"{kappa:.2f}" if isinstance(kappa, (float, int)) else "Tidak tersedia"
-    train_samples_str = f"{train_samples:,}" if isinstance(train_samples, int) else "Tidak tersedia"
-
-    st.markdown(f"""
-    <div class="ri-stat-grid">
-      <div class="ri-stat">
-        <div class="ri-stat-label">Akurasi Validasi</div>
-        <div class="ri-stat-value">{val_acc_str}</div>
-        <div class="ri-stat-sub">Validasi APTOS 2019</div>
-      </div>
-      <div class="ri-stat">
-        <div class="ri-stat-label">Kappa Cohen</div>
-        <div class="ri-stat-value">{kappa_str}</div>
-        <div class="ri-stat-sub">Kesepakatan antar penilai</div>
-      </div>
-      <div class="ri-stat">
-        <div class="ri-stat-label">Data Latih</div>
-        <div class="ri-stat-value">{train_samples_str}</div>
-        <div class="ri-stat-sub">Citra fundus</div>
-      </div>
-      <div class="ri-stat">
-        <div class="ri-stat-label">Kelas Keparahan</div>
-        <div class="ri-stat-value">5</div>
-        <div class="ri-stat-sub">Tanpa RD hingga Proliferatif</div>
-      </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    # Wawasan klinis AI
-    st.markdown('<div class="ri-section" style="padding-top:8px;">', unsafe_allow_html=True)
-
-    ai_is_ollama = intel_meta.get("ollama", False)
-    ai_badge_cls = "ri-ai-badge" if ai_is_ollama else "ri-ai-badge offline"
-    ai_badge_text = intel_meta.get("badge", "")
-
-    header_col, action_col = st.columns([4, 1])
-    with header_col:
-        st.markdown(f"""
-        <div class="ri-section-label">Wawasan Klinis Berbasis AI</div>
-        <div class="ri-section-title" style="margin-bottom:8px;">Ringkasan Klinis Terstruktur</div>
-        <span class="{ai_badge_cls}"><span class="dot"></span>{ai_badge_text}</span>
-        """, unsafe_allow_html=True)
-    with action_col:
-        if st.button("Buat Ulang", help="Panggil Ollama kembali untuk ringkasan baru"):
-            with st.spinner("Membuat ulang melalui Ollama..."):
-                summary, intel_meta = generate_clinical_intelligence(
-                    diagnosis=label,
-                    confidence=confidence * 100,
-                    class_scores=class_score_dict,
-                    predicted_class=predicted_class,
-                )
-                st.session_state[cache_key] = (summary, intel_meta)
-                st.rerun()
-
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-
-    ai_col1, ai_col2, ai_col3 = st.columns(3, gap="medium")
-
-    with ai_col1:
-        st.markdown(f"""
-        <div class="ri-intel-card">
-          <div class="ri-intel-card-label">Ringkasan Klinis</div>
-          <div class="ri-intel-card-body">{summary["summary"]}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with ai_col2:
-        st.markdown(f"""
-        <div class="ri-intel-card">
-          <div class="ri-intel-card-label">Tindakan yang Disarankan</div>
-          <div class="ri-intel-card-body">{summary["action"]}</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with ai_col3:
-        st.markdown(f"""
-        <div class="ri-intel-card">
-          <div class="ri-intel-card-label">Keterlibatan Tenaga Kesehatan</div>
-          <div class="ri-intel-card-body">{summary["hcp"]}</div>
-          <div class="ri-intel-card-channel">Kanal: <span>{summary["channel"]}</span></div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    st.markdown("<div style='height:16px;'></div>", unsafe_allow_html=True)
-
-    band_cls = "monitor" if predicted_class <= 1 else ("engage" if predicted_class == 2 else "act")
-    st.markdown(f"""
-    <div class="ri-severity-band {band_cls}">
-      <strong>{tier} | {label}</strong> - {summary['action']}
-    </div>
-    """, unsafe_allow_html=True)
-
-    if intel_meta.get("source") == "fallback":
-        st.markdown("<div style='height:12px;'></div>", unsafe_allow_html=True)
-        with st.expander("Aktifkan AI generatif lokal (Ollama)", expanded=False):
-            st.markdown(
-                "Untuk mengaktifkan pembuatan narasi klinis dinamis via LLM lokal tanpa biaya API:\n\n"
-                "1. **Pasang Ollama**: unduh dari [ollama.com](https://ollama.com)\n"
-                "2. **Tarik model**: buka terminal dan jalankan:\n"
-                "   ```bash\n"
-                "   ollama run llama3.2:3b\n"
-                "   ```\n"
-                "3. **Muat ulang**: klik **Buat Ulang** di atas untuk langsung menguji output LLM."
+            legend_html = "".join(
+                f'<div class="ri-legend-row" style="padding:3px 0; font-size:12px;">'
+                f'<div class="ri-legend-swatch" style="background:{c};"></div><span>{t}</span></div>'
+                for c, t in legend_items
             )
 
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown(f"""
+            <div class="ri-result-card" style="padding:16px 18px; min-height:190px;">
+              <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px;">
+                <div>
+                  <div class="ri-section-label">Probabilitas Kelas Prediksi</div>
+                  <div style="font-size:26px; font-weight:700; letter-spacing:-0.03em; color:var(--text-primary); line-height:1.1; margin-top:4px;">{conf_pct:.1f}%</div>
+                </div>
+                <span class="ri-badge {badge_class}"><span class="ri-badge-dot"></span>{label}</span>
+              </div>
+              <div class="ri-conf-bar-wrap">
+                <div class="ri-conf-bar-label">
+                  <span>Kelas terdekat: {CLASS_LABELS[top2_idx]}</span>
+                  <span>{top2_prob * 100:.1f}% (selisih {prob_margin * 100:.1f}%)</span>
+                </div>
+                <div class="ri-conf-bar-track">
+                  <div class="ri-conf-bar-fill" style="width:{top2_prob * 100:.1f}%; background:var(--warning);"></div>
+                </div>
+              </div>
+              <div style="margin-top:12px;">{legend_html}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        else:
+            st.markdown("""
+            <div class="ri-warn-banner">Visualisasi Grad-CAM tidak dapat dihasilkan untuk citra ini.</div>
+            """, unsafe_allow_html=True)
 
-    # Riwayat sesi
-    if len(st.session_state["history"]) > 1:
-        st.markdown('<div class="ri-section" style="padding-top:4px;">', unsafe_allow_html=True)
-        st.markdown('<div class="ri-section-label">Sesi</div>', unsafe_allow_html=True)
-        st.markdown('<div class="ri-section-title">Riwayat Pemindaian</div>', unsafe_allow_html=True)
-        st.dataframe(st.session_state["history"], use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    # Baris 2: distribusi probabilitas dan wawasan klinis
+    st.markdown('<div style="height:14px;"></div>', unsafe_allow_html=True)
+    col_prob, col_intel = st.columns(2, gap="medium")
+
+    with col_prob:
+        st.markdown("""
+        <div class="ri-section-label">Skor per Kelas</div>
+        <div class="ri-section-title">Distribusi Probabilitas</div>
+        """, unsafe_allow_html=True)
+        st.plotly_chart(build_prob_chart(probs, predicted_class), use_container_width=True, config={"displayModeBar": False})
+
+    with col_intel:
+        ai_is_ollama = intel_meta.get("ollama", False)
+        ai_badge_cls = "ri-ai-badge" if ai_is_ollama else "ri-ai-badge offline"
+        ai_badge_text = esc(intel_meta.get("badge", ""))
+
+        header_col, action_col = st.columns([3, 1])
+        with header_col:
+            st.markdown(f"""
+            <div class="ri-section-label">Wawasan Klinis Berbasis AI</div>
+            <div class="ri-section-title" style="margin-bottom:8px;">Ringkasan Klinis Terstruktur</div>
+            <span class="{ai_badge_cls}"><span class="dot"></span>{ai_badge_text}</span>
+            """, unsafe_allow_html=True)
+        with action_col:
+            if st.button("Buat Ulang", help="Panggil Ollama kembali untuk ringkasan baru"):
+                with st.spinner("Membuat ulang melalui Ollama..."):
+                    summary, intel_meta = generate_clinical_intelligence(
+                        diagnosis=label,
+                        confidence=confidence * 100,
+                        class_scores=class_score_dict,
+                        predicted_class=predicted_class,
+                    )
+                    st.session_state[cache_key] = (summary, intel_meta)
+                    st.rerun()
+
+        st.markdown(f"""
+        <div class="ri-intel-card" style="margin-top:10px; padding:16px 18px; height:auto;">
+          <div class="ri-intel-card-label">Ringkasan Klinis</div>
+          <div class="ri-intel-card-body" style="margin:4px 0 12px; line-height:1.6;">{esc(summary["summary"])}</div>
+          <div class="ri-intel-card-label">Tindakan yang Disarankan</div>
+          <div class="ri-intel-card-body" style="margin:4px 0 12px; line-height:1.6;">{esc(summary["action"])}</div>
+          <div class="ri-intel-card-label">Keterlibatan Tenaga Kesehatan</div>
+          <div class="ri-intel-card-body" style="margin:4px 0 0; line-height:1.6;">{esc(summary["hcp"])}</div>
+          <div class="ri-intel-card-channel" style="margin-top:12px; padding-top:10px;">Kanal: <span>{esc(summary["channel"])}</span></div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if intel_meta.get("source") == "fallback":
+            st.markdown('<div class="ri-gap"></div>', unsafe_allow_html=True)
+            with st.expander("Aktifkan AI generatif lokal (Ollama)", expanded=False):
+                st.markdown(
+                    "Untuk mengaktifkan pembuatan narasi klinis dinamis via LLM lokal tanpa biaya API:\n\n"
+                    "1. **Pasang Ollama**: unduh dari [ollama.com](https://ollama.com)\n"
+                    "2. **Tarik model**: buka terminal dan jalankan:\n"
+                    "   ```bash\n"
+                    "   ollama run llama3.2:3b\n"
+                    "   ```\n"
+                    "3. **Muat ulang**: klik **Buat Ulang** di atas untuk langsung menguji output LLM."
+                )
 
 else:
-    st.markdown('<div class="ri-section">', unsafe_allow_html=True)
     st.markdown("""
-    <div class="ri-empty anim-fadein-d2">
-      <div class="ri-empty-icon"></div>
-      <div class="ri-empty-title">Unggah citra fundus retina untuk memulai</div>
-      <div class="ri-empty-body">
-        Model akan menilai keparahan retinopati diabetik dalam lima kelas
-        dan menghasilkan peta perhatian Grad-CAM yang menunjukkan area yang mendasari prediksi.
-      </div>
-      <div class="ri-empty-tags">
-        <span class="ri-tag">PNG</span>
-        <span class="ri-tag">JPG</span>
-        <span class="ri-tag">JPEG</span>
-        <span class="ri-tag">EfficientNetB3</span>
-        <span class="ri-tag">Grad-CAM</span>
+    <div class="ri-empty anim-fadein-d2" style="min-height:300px; margin-top:12px;">
+      <div>
+        <div class="ri-empty-title">Unggah citra fundus retina untuk memulai</div>
+        <div class="ri-empty-body">
+          Gunakan panel di sisi kiri. Model akan menilai keparahan retinopati diabetik dalam lima kelas
+          dan menghasilkan peta perhatian Grad-CAM yang menunjukkan area yang mendasari prediksi.
+        </div>
+        <div class="ri-empty-tags">
+          <span class="ri-tag">PNG</span>
+          <span class="ri-tag">JPG</span>
+          <span class="ri-tag">JPEG</span>
+          <span class="ri-tag">EfficientNetB3</span>
+          <span class="ri-tag">Grad-CAM</span>
+        </div>
       </div>
     </div>
     """, unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+
+# Riwayat sesi
+if len(st.session_state["history"]) > 1:
+    st.markdown("""
+    <div class="ri-section-label" style="margin-top:14px;">Sesi</div>
+    <div class="ri-section-title">Riwayat Pemindaian</div>
+    """, unsafe_allow_html=True)
+    st.dataframe(st.session_state["history"], use_container_width=True)
 
 # Footer
 st.markdown("""
-<div class="ri-footer">
+<div class="ri-footer" style="margin-top:16px;">
   <div class="ri-footer-text">
     Dibangun dengan EfficientNetB3 · Dilatih menggunakan Dataset Deteksi Kebutaan APTOS 2019 ·
     Untuk keperluan demonstrasi dan riset · Bukan untuk diagnosis klinis ·
